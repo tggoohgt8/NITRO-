@@ -1,0 +1,469 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+╔═══════════════════════════════════════════════════════════════╗
+║   🥷 NINJA-NITRO — Discord Nitro Generator & Checker       ║
+║   توليد وفحص رموز Discord Nitro باحترافية                  ║
+║   Discord: in7j  |  Python 3 Only                          ║
+║   ⚠️ Educational Purpose Only                              ║
+║   ═════════════════════════════════════════════════════════ ║
+║   © 2026 NINJA ™ — All Rights Reserved                    ║
+║   Developer: in7j (DISCORD)                                ║
+║   Version: 2.0.0                                           ║
+╚═══════════════════════════════════════════════════════════════╝
+"""
+
+import sys
+import os
+import time
+import random
+import string
+import threading
+import json
+import requests
+from datetime import datetime
+from urllib.parse import urlparse
+
+# ================================================================
+#  Python Version Check
+# ================================================================
+if sys.version_info < (3, 6):
+    print("\033[91m[!] Error: Python 3.6 or higher required\033[0m")
+    sys.exit(1)
+
+# ================================================================
+#  NINJA Signature
+# ================================================================
+VERSION = "NINJA-NITRO-v2.0"
+AUTHOR = "in7j"
+CONTACT = "DISCORD: in7j"
+COPYRIGHT = "© 2026 NINJA ™ — All Rights Reserved"
+
+# ================================================================
+#  Colors
+# ================================================================
+class Colors:
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    WHITE = '\033[97m'
+    RESET = '\033[0m'
+    DIM = '\033[2m'
+    BOLD = '\033[1m'
+
+def col(color, text):
+    return f"{color}{text}{Colors.RESET}"
+
+def clear_screen():
+    os.system('clear' if os.name == 'posix' else 'cls')
+
+# ================================================================
+#  Banner
+# ================================================================
+def print_banner():
+    clear_screen()
+    banner = f"""
+{Colors.RED}╔═══════════════════════════════════════════════════════════════╗
+{Colors.RED}║{Colors.YELLOW}   ███╗   ██╗██╗███╗   ██╗██╗   ██╗ █████╗      {Colors.RED}║
+{Colors.RED}║{Colors.YELLOW}   ████╗  ██║██║████╗  ██║╚██╗ ██╔╝██╔══██╗     {Colors.RED}║
+{Colors.RED}║{Colors.YELLOW}   ██╔██╗ ██║██║██╔██╗ ██║ ╚████╔╝ ███████║     {Colors.RED}║
+{Colors.RED}║{Colors.YELLOW}   ██║╚██╗██║██║██║╚██╗██║  ╚██╔╝  ██╔══██║     {Colors.RED}║
+{Colors.RED}║{Colors.YELLOW}   ██║ ╚████║██║██║ ╚████║   ██║   ██║  ██║     {Colors.RED}║
+{Colors.RED}║{Colors.YELLOW}   ╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝     {Colors.RED}║
+{Colors.RED}║{Colors.CYAN}   🥷 NINJA-NITRO  v2.0                           {Colors.RED}║
+{Colors.RED}║{Colors.GREEN}   Discord Nitro Generator & Checker            {Colors.RED}║
+{Colors.RED}║{Colors.RED}   ⚠️  Educational Purpose Only                    {Colors.RED}║
+{Colors.RED}║{Colors.DIM}   {COPYRIGHT}                                      {Colors.RED}║
+{Colors.RED}╚═══════════════════════════════════════════════════════════════╝{Colors.RESET}
+    """
+    print(banner)
+
+# ================================================================
+#  NITRO CODE GENERATOR
+# ================================================================
+class NitroGenerator:
+    """Generate Discord Nitro gift codes"""
+    
+    @staticmethod
+    def generate(length=16):
+        """Generate random Nitro code"""
+        chars = string.ascii_letters + string.digits
+        return ''.join(random.choices(chars, k=length))
+    
+    @staticmethod
+    def generate_gift_link(code):
+        """Create gift link from code"""
+        return f"https://discord.com/gifts/{code}"
+    
+    @staticmethod
+    def generate_batch(count, length=16):
+        """Generate multiple codes"""
+        codes = []
+        seen = set()
+        while len(codes) < count:
+            code = NitroGenerator.generate(length)
+            if code not in seen:
+                seen.add(code)
+                codes.append(code)
+        return codes
+
+# ================================================================
+#  NITRO CHECKER
+# ================================================================
+class NitroChecker:
+    """Check Discord Nitro code validity"""
+    
+    API_URL = "https://discord.com/api/v9/entitlements/gift-codes/{code}?with_application=false&with_subscription_plan=true"
+    
+    @staticmethod
+    def check_code(code):
+        """Check if Nitro code is valid"""
+        try:
+            url = NitroChecker.API_URL.format(code=code)
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "application/json",
+                "Accept-Language": "en-US,en;q=0.9"
+            }
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('uses') is not None:
+                    # Valid code
+                    subscription = data.get('subscription_plan', {})
+                    return {
+                        'valid': True,
+                        'code': code,
+                        'type': subscription.get('name', 'Nitro'),
+                        'duration': subscription.get('duration', 'Unknown'),
+                        'claimed': data.get('claimed', False),
+                        'expires_at': data.get('expires_at', 'Unknown')
+                    }
+                else:
+                    return {'valid': False, 'code': code, 'reason': 'Invalid format'}
+            elif response.status_code == 404:
+                return {'valid': False, 'code': code, 'reason': 'Code not found'}
+            elif response.status_code == 429:
+                return {'valid': False, 'code': code, 'reason': 'Rate limited'}
+            else:
+                return {'valid': False, 'code': code, 'reason': f'HTTP {response.status_code}'}
+                
+        except requests.exceptions.Timeout:
+            return {'valid': False, 'code': code, 'reason': 'Timeout'}
+        except requests.exceptions.ConnectionError:
+            return {'valid': False, 'code': code, 'reason': 'Connection error'}
+        except Exception as e:
+            return {'valid': False, 'code': code, 'reason': str(e)}
+    
+    @staticmethod
+    def check_batch(codes, threads=10, callback=None):
+        """Check multiple codes with threading"""
+        results = {'valid': [], 'invalid': []}
+        lock = threading.Lock()
+        checked = 0
+        
+        def worker(code):
+            nonlocal checked
+            result = NitroChecker.check_code(code)
+            with lock:
+                checked += 1
+                if result['valid']:
+                    results['valid'].append(result)
+                else:
+                    results['invalid'].append(result)
+                if callback:
+                    callback(checked, len(codes), result)
+        
+        threads_list = []
+        for code in codes:
+            t = threading.Thread(target=worker, args=(code,))
+            t.daemon = True
+            t.start()
+            threads_list.append(t)
+            if len(threads_list) >= threads:
+                for t in threads_list:
+                    t.join(timeout=0.1)
+                threads_list = []
+        
+        for t in threads_list:
+            t.join()
+        
+        return results
+
+# ================================================================
+#  WEBHOOK SENDER
+# ================================================================
+def send_to_webhook(webhook_url, result):
+    """Send valid code to Discord webhook"""
+    try:
+        embed = {
+            "embeds": [{
+                "title": "🎯 VALID NITRO CODE FOUND!",
+                "color": 0x00ff00,
+                "fields": [
+                    {"name": "🔗 Link", "value": f"[Click Here](https://discord.com/gifts/{result['code']})", "inline": False},
+                    {"name": "📝 Code", "value": f"`{result['code']}`", "inline": True},
+                    {"name": "📦 Type", "value": result.get('type', 'Unknown'), "inline": True},
+                    {"name": "⏳ Duration", "value": result.get('duration', 'Unknown'), "inline": True},
+                    {"name": "📅 Expires", "value": result.get('expires_at', 'Unknown'), "inline": False},
+                    {"name": "🔒 Claimed", "value": "✅ Yes" if result.get('claimed') else "❌ No", "inline": True}
+                ],
+                "footer": {
+                    "text": f"{COPYRIGHT} | {AUTHOR} | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                }
+            }]
+        }
+        
+        response = requests.post(
+            webhook_url,
+            json=embed,
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        return response.status_code in [200, 204]
+    except:
+        return False
+
+# ================================================================
+#  MAIN ENGINE
+# ================================================================
+class NinjaNitro:
+    """Main engine for generating and checking Nitro codes"""
+    
+    def __init__(self):
+        self.generator = NitroGenerator()
+        self.checker = NitroChecker()
+        self.results = {'valid': [], 'invalid': []}
+        self.total_generated = 0
+        self.total_checked = 0
+        self.running = True
+    
+    def generate_and_check(self, count, threads=10, webhook=None, callback=None):
+        """Generate and check Nitro codes"""
+        self.running = True
+        
+        print(f"\n{col(Colors.BLUE, '[*]')} Generating {count} Nitro codes...")
+        
+        # Generate codes
+        codes = self.generator.generate_batch(count)
+        self.total_generated = len(codes)
+        
+        print(f"{col(Colors.GREEN, '[+]')} Generated {len(codes)} codes")
+        print(f"{col(Colors.BLUE, '[*]')} Checking codes with {threads} threads...\n")
+        
+        # Check codes
+        def progress_callback(checked, total, result):
+            self.total_checked = checked
+            if result['valid']:
+                self.results['valid'].append(result)
+                print(f"\r{col(Colors.GREEN, '[✅]')} Valid: {len(self.results['valid'])} | Invalid: {len(self.results['invalid'])} | Checked: {checked}/{total}   ")
+                if webhook:
+                    send_to_webhook(webhook, result)
+            else:
+                self.results['invalid'].append(result)
+                if checked % 50 == 0:
+                    print(f"\r{col(Colors.CYAN, '[⏳]')} Valid: {len(self.results['valid'])} | Invalid: {len(self.results['invalid'])} | Checked: {checked}/{total}   ", end='')
+        
+        self.results = self.checker.check_batch(codes, threads, progress_callback)
+        print()  # New line after progress
+        
+        return self.results
+    
+    def generate_gift_links(self, count):
+        """Generate gift links only"""
+        codes = self.generator.generate_batch(count)
+        links = [self.generator.generate_gift_link(code) for code in codes]
+        return links
+    
+    def check_single_code(self, code):
+        """Check a single Nitro code"""
+        return self.checker.check_code(code)
+
+# ================================================================
+#  MENU
+# ================================================================
+def main_menu():
+    print_banner()
+    
+    menu = f"""
+{Colors.YELLOW}┌──────────────────────────────────────────────────────────────┐
+{Colors.YELLOW}│{Colors.WHITE}  [1] Generate & Check Nitro Codes                  {Colors.YELLOW}│
+{Colors.YELLOW}│{Colors.WHITE}  [2] Generate Only (Gift Links)                    {Colors.YELLOW}│
+{Colors.YELLOW}│{Colors.WHITE}  [3] Check Single Code                             {Colors.YELLOW}│
+{Colors.YELLOW}│{Colors.WHITE}  [4] Check Codes from File                         {Colors.YELLOW}│
+{Colors.YELLOW}│{Colors.WHITE}  [5] Settings (Threads, Webhook)                   {Colors.YELLOW}│
+{Colors.YELLOW}│{Colors.RED}  [0] Exit                                          {Colors.YELLOW}│
+{Colors.YELLOW}└──────────────────────────────────────────────────────────────┘{Colors.RESET}
+    """
+    print(menu)
+    
+    choice = input(f"{col(Colors.CYAN, 'ninja@nitro ~$ ')}").strip()
+    return choice
+
+# ================================================================
+#  MAIN
+# ================================================================
+def main():
+    print(f"{Colors.DIM}\n{VERSION} | {COPYRIGHT}{Colors.RESET}")
+    time.sleep(0.5)
+    
+    engine = NinjaNitro()
+    threads = 10
+    webhook_url = ""
+    
+    while True:
+        choice = main_menu()
+        
+        if choice == "0":
+            print(f"\n{col(Colors.GREEN, '[+]')} Goodbye! | {VERSION}\n")
+            break
+        
+        elif choice == "1":
+            try:
+                count = int(input(f"{col(Colors.CYAN, 'Number of codes to generate > ')}").strip() or "100")
+                if count < 1: count = 1
+                if count > 10000: count = 10000
+            except:
+                count = 100
+            
+            print(f"\n{col(Colors.RED, '[🔥]')} Starting Nitro hunt...")
+            start_time = time.time()
+            
+            results = engine.generate_and_check(count, threads, webhook_url)
+            
+            elapsed = time.time() - start_time
+            print(f"\n{col(Colors.GREEN, '[✅]')} Done! Found {len(results['valid'])} valid codes in {elapsed:.1f}s")
+            
+            if results['valid']:
+                print(f"\n{col(Colors.YELLOW, '═' * 60)}")
+                print(f"{col(Colors.GREEN, '  🎯 VALID CODES:')}")
+                for result in results['valid']:
+                    print(f"    🔗 {result['code']} | {result.get('type', 'Unknown')} | {result.get('duration', 'Unknown')}")
+                print(f"{col(Colors.YELLOW, '═' * 60)}")
+                
+                # Save valid codes
+                with open(f"valid_codes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", "w") as f:
+                    for result in results['valid']:
+                        f.write(f"https://discord.com/gifts/{result['code']}\n")
+            
+            input(f"\n{col(Colors.YELLOW, '[*]')} Press Enter to continue...")
+        
+        elif choice == "2":
+            try:
+                count = int(input(f"{col(Colors.CYAN, 'Number of links to generate > ')}").strip() or "50")
+                if count < 1: count = 1
+                if count > 10000: count = 10000
+            except:
+                count = 50
+            
+            print(f"\n{col(Colors.BLUE, '[*]')} Generating {count} gift links...")
+            links = engine.generate_gift_links(count)
+            
+            filename = f"gift_links_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            with open(filename, "w") as f:
+                for link in links:
+                    f.write(f"{link}\n")
+            
+            print(f"{col(Colors.GREEN, '[+]')} Saved {len(links)} links to {filename}")
+            print(f"{col(Colors.DIM, '[i]')} First 5 links:")
+            for link in links[:5]:
+                print(f"    {link}")
+            
+            input(f"\n{col(Colors.YELLOW, '[*]')} Press Enter to continue...")
+        
+        elif choice == "3":
+            code = input(f"{col(Colors.CYAN, 'Enter Nitro code > ')}").strip()
+            if not code:
+                continue
+            
+            print(f"\n{col(Colors.BLUE, '[*]')} Checking code...")
+            result = engine.check_single_code(code)
+            
+            if result['valid']:
+                print(f"{col(Colors.GREEN, '[✅]')} Code is VALID!")
+                print(f"  📦 Type: {result.get('type', 'Unknown')}")
+                print(f"  ⏳ Duration: {result.get('duration', 'Unknown')}")
+                print(f"  🔗 Link: https://discord.com/gifts/{code}")
+                if webhook_url:
+                    send_to_webhook(webhook_url, result)
+            else:
+                print(f"{col(Colors.RED, '[❌]')} Code is INVALID")
+                print(f"  Reason: {result.get('reason', 'Unknown')}")
+            
+            input(f"\n{col(Colors.YELLOW, '[*]')} Press Enter to continue...")
+        
+        elif choice == "4":
+            filename = input(f"{col(Colors.CYAN, 'Enter filename (e.g., codes.txt) > ')}").strip()
+            if not filename:
+                continue
+            
+            try:
+                with open(filename, "r") as f:
+                    codes = [line.strip() for line in f if line.strip()]
+                
+                print(f"\n{col(Colors.BLUE, '[*]')} Checking {len(codes)} codes from {filename}...")
+                
+                def progress_callback(checked, total, result):
+                    if checked % 10 == 0:
+                        print(f"\r{col(Colors.CYAN, '[⏳]')} Checked: {checked}/{total}", end='')
+                
+                results = engine.checker.check_batch(codes, threads, progress_callback)
+                print()
+                
+                print(f"{col(Colors.GREEN, '[✅]')} Found {len(results['valid'])} valid codes")
+                
+                if results['valid']:
+                    with open(f"valid_from_file_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", "w") as f:
+                        for result in results['valid']:
+                            f.write(f"https://discord.com/gifts/{result['code']}\n")
+                    
+                    for result in results['valid']:
+                        print(f"  🔗 {result['code']}")
+                        if webhook_url:
+                            send_to_webhook(webhook_url, result)
+            
+            except FileNotFoundError:
+                print(f"{col(Colors.RED, '[!] File not found: {filename}')}")
+            
+            input(f"\n{col(Colors.YELLOW, '[*]')} Press Enter to continue...")
+        
+        elif choice == "5":
+            print(f"\n{col(Colors.YELLOW, '═' * 60)}")
+            print(f"{col(Colors.WHITE, '  ⚙️ SETTINGS')}")
+            print(f"{col(Colors.YELLOW, '═' * 60)}")
+            print(f"  Threads: {threads}")
+            print(f"  Webhook: {webhook_url if webhook_url else '[Not set]'}")
+            print(f"{col(Colors.YELLOW, '═' * 60)}")
+            
+            try:
+                new_threads = input(f"{col(Colors.CYAN, 'New threads (1-50) > ')}").strip()
+                if new_threads:
+                    threads = int(new_threads)
+                    if threads < 1: threads = 1
+                    if threads > 50: threads = 50
+            except:
+                pass
+            
+            new_webhook = input(f"{col(Colors.CYAN, 'New webhook URL (leave empty to keep) > ')}").strip()
+            if new_webhook:
+                webhook_url = new_webhook
+            
+            print(f"{col(Colors.GREEN, '[+]')} Settings updated!")
+            input(f"\n{col(Colors.YELLOW, '[*]')} Press Enter to continue...")
+        
+        else:
+            print(f"{col(Colors.RED, '[!] Invalid choice')}")
+            time.sleep(1)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n{col(Colors.YELLOW, '[!]')} Interrupted by user")
+    except Exception as e:
+        print(f"\n{col(Colors.RED, f'[!] Error: {e}')}")
